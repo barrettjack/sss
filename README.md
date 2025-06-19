@@ -14,7 +14,7 @@ I thought it would be fun to play around with implementing Shamir's secret shari
 
 The practical utility of this scheme is that it provides a means to "break down" a key into shares without comprimising the security of the key that the shares protect. More concretely, you could take a key you wish to protect (say the backup key for your password manager) and split it into 3 shares such that:
 - 2 of the 3 shares are required to recover the key.
-- an attacker is in no better a position with 1 share than he is with 0 shares. (If an attacker comprimizes only one of your shares, he cannot recover the key.)
+- an attacker is in no better a position with 1 share than he is with 0 shares. (If an attacker comprimizes fewer than the threshold number of shares, he has not learned any information about the key.)
 
 ### Interface (if imported as a library)
 
