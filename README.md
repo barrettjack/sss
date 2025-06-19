@@ -5,16 +5,19 @@
 
 ### Motivation
 
-I thought it would be fun to play around with implementing Shamir's secret sharing scheme in python, having learned about the scheme in UVic's course on cryptography. It is a simple and elegant (yet secure) scheme, which I invite you to appreciate by:
-
-- checking out the post I made on my personal site detailing the mathematics of the scheme.
-- reading the source code!
+I thought it would be fun to play around with implementing Shamir's secret sharing scheme in python, having learned about the scheme in UVic's course on cryptography. It is a simple and elegant (yet secure) scheme, which I invite you to appreciate by checking out the source code, and/or by reading about the scheme on [Wikipedia](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing).
 
 ### Practical utility
 
 The practical utility of this scheme is that it provides a means to "break down" a key into shares without comprimising the security of the key that the shares protect. More concretely, you could take a key you wish to protect (say the backup key for your password manager) and split it into 3 shares such that:
 - 2 of the 3 shares are required to recover the key.
 - an attacker is in no better a position with 1 share than he is with 0 shares. (If an attacker comprimizes fewer than the threshold number of shares, he has not learned any information about the key.)
+
+### Setup
+- Here will go a description of the setup required to get this library/app working (the user shouldn't have to think about this, particularly if invoking the app via the CLI!)
+- Setup requirements.txt and ship in the repo
+- Can I get python to install all the requirements on invoking this program? I think that should be possible...
+-Add a remark about homebrew and zbar is running on mac
 
 ### Interface (if imported as a library)
 

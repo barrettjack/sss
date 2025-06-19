@@ -4,9 +4,18 @@ import math
 import base64
 import qrcode
 import os
+import sys
 from io import BytesIO
 from PIL import Image
 from sympy import nextprime
+
+# Set up library path for macOS zbar (assumed to be installed via homebrew)
+if sys.platform == "darwin":
+    zbar_path = "/opt/homebrew/opt/zbar/lib"
+    if os.path.exists(zbar_path):
+        current_dyld_path = os.environ.get('DYLD_LIBRARY_PATH', '')
+        if zbar_path not in current_dyld_path:
+            os.environ['DYLD_LIBRARY_PATH'] = f"{zbar_path}:{current_dyld_path}".rstrip(':')
 
 try:
     # Optional dependency for QR code scanning
@@ -66,7 +75,7 @@ def reconstruct(shares: list[tuple[int, int]], prime: int = prime):
     y_values = [y for _, y in shares]
     
     def mod_inverse(a, m):
-        # Fermat's little theorem: a^(p-2) ≡ a^(-1) (mod p) when p is prime
+        # It follows from Fermat's little theorem that a^(p-2) ≡ a^(-1) (mod p) when p is prime
         return pow(a, m - 2, m)
     
     lagrange_polynomials = []
