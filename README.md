@@ -19,5 +19,11 @@ The practical utility of this scheme is that it provides a means to "break down"
 ### Interface (if imported as a library)
 
 ### CLI description (if invoked as a standalone application)
+- `python3 sss.py (-s | --share) (-m | -f) (message | filename) --enc_type ("base64" | "qr") threshold number_of_shares`
+    - This form of invocation can be used to share a message with threshold `threshold`, yielding `number_of_shares` shares.
+    - Example 1: `python3 sss.py -s -m "Hello!" --enc_type "qr" 2 3`
+    - Example 2: `python3 sss.py --share -f message.txt 3 5`
+- `python3 sss.py (-r | --reconstruct) --enc_type ("base64" | "qr") (path_to_base64_encoded_shares | path_to_qr_codes)`
+    - This form of invocation is used to attempt to reconstruct a message from a set of shares.
 
 
