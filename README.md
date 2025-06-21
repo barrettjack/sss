@@ -28,6 +28,8 @@ You should be ready to run `sss.py` now! It can be invoked as a command line app
 - Two example invocations of `sss.py` via the command line are as follows:
     - Example 1: `python3 sss.py -s -m "Hello!" --enc_type "qr" 2 3`. Shares the message "Hello!" to 3 QR code shares with a recovery threshold of 2.
     - Example 2: `python3 sss.py --share -f message.txt --enc_type "base64" 3 5`. Shares the message whose contents lie in the file `message.txt` to 5 shares with a recovery threshold of 3.
+    - Example 3: `python3 sss.py -r --enc_type "qr" shares_qr`. Recovers a message whose shares lie in shares_qr, provided a threshold number of shares or more.
+    -Example 4: `python3 sss.py -r --enc_type "base64" shares_base64/share_1.txt shares_base64/share_2.txt shares_base64/share_3.txt`. Recovers the message encoded in example 2 by using 3 of the 5 shares (try using 2 or fewer!).
 
 ### Interface (if imported as a library)
 Pending!

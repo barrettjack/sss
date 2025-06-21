@@ -233,11 +233,11 @@ def reconstruct_from_qrcodes(image_paths):
     
     # Scan each QR code to get the shares
     shares = []
+    all_equal_primes = True
+    prime_value = None
     
     for path in image_paths:
         result = scan_share_qrcode(path)
-        all_equal_primes = True
-        prime_value = None
         if result:
             share, share_prime = result
             if prime_value is None:
@@ -252,10 +252,10 @@ def reconstruct_from_qrcodes(image_paths):
     
     # Reconstruct the secret from the shares
     if shares:
-        if all_equal_primes:
-            return reconstruct(shares)
+        if all_equal_primes and prime_value is not None:
+            return reconstruct(shares, prime_value)
         else:
-            return "Error: The shares have different prime values. Reconstruction failed."
+            return "Error: The shares have different prime values or no prime found. Reconstruction failed."
     else:
         return "Error: Could not extract any valid shares from QR codes."
 
@@ -347,6 +347,8 @@ def main():
         if args.enc_type == 'base64':
             # Assume args.args contains paths to base64 encoded share files
             shares = []
+            first_prime_received = None
+            different_primes_found = False
             
             for path in args.args:
                 try:
@@ -355,16 +357,24 @@ def main():
                         share_result = decode_share_base64(encoded_share)
                         
                         if isinstance(share_result, tuple) and len(share_result) == 2:
-                            share, prime_from_share = share_result
+                            share, this_shares_prime = share_result
                             shares.append(share)
+                            if first_prime_received is None:
+                                first_prime_received = this_shares_prime
+                            else:
+                                if this_shares_prime != first_prime_received:
+                                    different_primes_found = True
                         else:
                             print(f"Invalid share format in {path}")
                 except Exception as e:
                     print(f"Error reading share from {path}: {e}")
             
-            if shares:
-                secret = reconstruct(shares, prime_from_share)
-                print(f"Reconstructed secret: {secret}")
+            if shares and first_prime_received is not None:
+                if different_primes_found:
+                    print("Error: The shares have different prime values. Reconstruction failed.")
+                else:
+                    secret = reconstruct(shares, first_prime_received)
+                    print(f"Reconstructed secret: {secret}")
             else:
                 print("No valid shares found. Reconstruction failed.")
                 
