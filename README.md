@@ -13,20 +13,22 @@ The practical utility of this scheme is that it provides a means to "break down"
 - 2 of the 3 shares are required to recover the key.
 - an attacker is in no better a position with 1 share than he is with 0 shares. (If an attacker comprimizes fewer than the threshold number of shares, he has not learned any information about the key.)
 
-### Setup
-- Here will go a description of the setup required to get this library/app working (the user shouldn't have to think about this, particularly if invoking the app via the CLI!)
-- Setup requirements.txt and ship in the repo
-- Can I get python to install all the requirements on invoking this program? I think that should be possible...
--Add a remark about homebrew and zbar is running on mac
+### Recommended setup procedure
+
+Setup for the application should be quick and painless:
+1) It is recommended that you set up a Python virtual environment in the working directory where `sss.py` lives so that the needed dependencies can be installed at specific versions. To do so, run `python3 -m venv venv` in the same directory that `sss.py` lives in.
+2) Run `pip` to install the needed dependencies at the specified versions: `pip install -r requirements.txt`.
+3) If you are a mac user, you may need also need to install `zbar` for full functionality. To do so, it is recommended that zbar be installed using `brew` as follows: `brew install zbar`.
+
+You should be ready to run `sss.py` now! It can be invoked as a command line application, or imported as a library. Descriptions of each follow:
+
+### CLI
+
+- To view the CLI, run `python3 sss.py (-h | --help)`
+- Two example invocations of `sss.py` via the command line are as follows:
+    - Example 1: `python3 sss.py -s -m "Hello!" --enc_type "qr" 2 3`. Shares the message "Hello!" to 3 QR code shares with a recovery threshold of 2.
+    - Example 2: `python3 sss.py --share -f message.txt --enc_type "base64" 3 5`. Shares the message whose contents lie in the file `message.txt` to 5 shares with a recovery threshold of 3.
 
 ### Interface (if imported as a library)
-
-### CLI description (if invoked as a standalone application)
-- `python3 sss.py (-s | --share) (-m | -f) (message | filename) --enc_type ("base64" | "qr") threshold number_of_shares`
-    - This form of invocation can be used to share a message with threshold `threshold`, yielding `number_of_shares` shares.
-    - Example 1: `python3 sss.py -s -m "Hello!" --enc_type "qr" 2 3`
-    - Example 2: `python3 sss.py --share -f message.txt 3 5`
-- `python3 sss.py (-r | --reconstruct) --enc_type ("base64" | "qr") (path_to_base64_encoded_shares | path_to_qr_codes)`
-    - This form of invocation is used to attempt to reconstruct a message from a set of shares.
-
+Pending!
 

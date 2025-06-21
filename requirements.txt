@@ -1,0 +1,5 @@
+# Core dependencies for Shamir's Secret Sharing
+sympy==1.14.0
+qrcode==8.2
+pillow==11.2.1
+pyzbar==0.1.9

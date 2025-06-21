@@ -9,7 +9,7 @@ from io import BytesIO
 from PIL import Image
 from sympy import nextprime
 
-# Set up library path for macOS zbar (assumed to be installed via homebrew)
+# dylib handling for zbar on macos
 if sys.platform == "darwin":
     zbar_path = "/opt/homebrew/opt/zbar/lib"
     if os.path.exists(zbar_path):
@@ -18,14 +18,14 @@ if sys.platform == "darwin":
             os.environ['DYLD_LIBRARY_PATH'] = f"{zbar_path}:{current_dyld_path}".rstrip(':')
 
 try:
-    # Optional dependency for QR code scanning
+    # this can fail if pyzbar is not installed, or cannot be found
     from pyzbar.pyzbar import decode
     HAS_PYZBAR = True
 except ImportError:
     HAS_PYZBAR = False
 
-tmp = secrets.randbits(512)
-prime = nextprime(tmp)
+_tmp = secrets.randbits(512)
+_prime = nextprime(_tmp)
 
 def share(message: str, threshold: int, num_shares: int):
     """
@@ -47,17 +47,17 @@ def share(message: str, threshold: int, num_shares: int):
     message_bytes = message.encode('utf-8')
     message_int = int.from_bytes(message_bytes, byteorder='big')
 
-    assert message_int < prime, "The inputted message must be utf-8-encodable in fewer than 512 bits."
+    assert message_int < _prime, "The inputted message must be utf-8-encodable in fewer than 512 bits."
     assert threshold <= num_shares, "The chosen threshold must be <= the number of shares to generate. Aborting."
 
-    coeffs = [secrets.randbelow(prime) for _ in range(threshold)]
+    coeffs = [secrets.randbelow(_prime) for _ in range(threshold)]
     poly = lambda x: message_int + int(sum([x**j * coeffs[j] for j in range(1, threshold)]))
     
-    shares = [(i, poly(i) % prime) for i in range(1, num_shares + 1)]
-    return shares, prime
+    shares = [(i, poly(i) % _prime) for i in range(1, num_shares + 1)]
+    return shares, _prime
 
 
-def reconstruct(shares: list[tuple[int, int]], prime: int = prime):
+def reconstruct(shares: list[tuple[int, int]], prime: int = _prime):
     """
     Reconstruct the secret from a list of shares using Lagrange interpolation.
     
@@ -107,46 +107,42 @@ def reconstruct(shares: list[tuple[int, int]], prime: int = prime):
         return "Error: Could not decode the reconstructed secret. This likely means not enough valid shares were provided."
 
 
-def encode_share_base64(share):
+def encode_share_base64(share, prime_value=_prime):
     """Convert a share (x, y) to a base64 string for human readability"""
     x, y = share
-    # Pack the x and y values together
-    combined = f"{x}:{y}"
+    # Pack the x and y values together, including prime if provided
+    if prime_value:
+        combined = f"{x}:{y}:{prime_value}"
+    else:
+        combined = f"{x}:{y}:{_prime}"
     # Encode to bytes and then to base64
     return base64.b64encode(combined.encode('utf-8')).decode('utf-8')
 
+
 def decode_share_base64(encoded_share):
-    """Convert a base64 encoded share back to (x, y) tuple"""
+    """Convert a base64 encoded share back to (x, y) tuple and optionally prime"""
     # Decode from base64 to bytes and then to string
     decoded = base64.b64decode(encoded_share).decode('utf-8')
-    # Split the string to get x and y
-    x_str, y_str = decoded.split(':')
-    return (int(x_str), int(y_str))
+    # Split the string to get x, y and optionally prime
+    parts = decoded.split(':')
+    return (int(parts[0]), int(parts[1])), int(parts[2])
 
-def encode_share_hex(share):
-    """Convert a share (x, y) to a hex string for human readability"""
-    x, y = share
-    # Format as hex with a separator
-    return f"{x:x}:{y:x}"
 
-def decode_share_hex(encoded_share):
-    """Convert a hex encoded share back to (x, y) tuple"""
-    x_str, y_str = encoded_share.split(':')
-    return (int(x_str, 16), int(y_str, 16))
 
-def generate_share_qrcode(share, filename=None):
+def generate_share_qrcode(share, filename=None, prime_value=_prime):
     """
     Generate a QR code for a share and save it to a file or return the image
     
     Args:
         share: The (x, y) tuple share
         filename: Optional filename to save the QR code image
+        prime_value: Optional prime value to include with the share
         
     Returns:
         PIL Image object if filename is None, otherwise None
     """
     # Convert share to base64 first for better QR code efficiency
-    encoded_share = encode_share_base64(share)
+    encoded_share = encode_share_base64(share, prime_value)
     
     # Create QR code instance
     qr = qrcode.QRCode(
@@ -169,7 +165,8 @@ def generate_share_qrcode(share, filename=None):
     else:
         return img
 
-def generate_all_share_qrcodes(shares, directory="shares_qr"):
+
+def generate_all_share_qrcodes(shares, directory="shares_qr", prime_value=_prime):
     """Generate QR codes for all shares and save them to files"""
     # Create directory if it doesn't exist
     if not os.path.exists(directory):
@@ -178,8 +175,9 @@ def generate_all_share_qrcodes(shares, directory="shares_qr"):
     # Generate QR code for each share
     for i, share in enumerate(shares):
         filename = os.path.join(directory, f"share_{i+1}.png")
-        generate_share_qrcode(share, filename)
+        generate_share_qrcode(share, filename, prime_value)
         print(f"QR code for share {i+1} saved to {filename}")
+
 
 def scan_share_qrcode(image_path):
     """
@@ -189,7 +187,8 @@ def scan_share_qrcode(image_path):
         image_path: Path to the QR code image
         
     Returns:
-        The (x, y) tuple share extracted from the QR code
+        Tuple containing (share, prime) where share is the (x, y) tuple and prime is the prime value
+        or None if decoding fails. Share data is decoded from base64
     """
     if not HAS_PYZBAR:
         print("Error: pyzbar package is required for QR code scanning.")
@@ -210,19 +209,20 @@ def scan_share_qrcode(image_path):
     
     # Convert from base64 to share
     try:
-        return decode_share_base64(qr_data)
+        share, prime = decode_share_base64(qr_data)
+        return share, prime
     except Exception as e:
         print(f"Error decoding share from QR code: {e}")
         return None
 
-def reconstruct_from_qrcodes(image_paths, prime):
+
+def reconstruct_from_qrcodes(image_paths):
     """
     Reconstruct the secret from a list of QR code image paths
     
     Args:
         image_paths: List of paths to QR code images
-        prime: The prime modulus used during sharing
-        
+
     Returns:
         The reconstructed secret as a string
     """
@@ -233,27 +233,166 @@ def reconstruct_from_qrcodes(image_paths, prime):
     
     # Scan each QR code to get the shares
     shares = []
+    
     for path in image_paths:
-        share = scan_share_qrcode(path)
-        if share:
+        result = scan_share_qrcode(path)
+        all_equal_primes = True
+        prime_value = None
+        if result:
+            share, share_prime = result
+            if prime_value is None:
+                prime_value = share_prime
+            elif prime_value != share_prime:
+                all_equal_primes = False
+                break
+            print(f"Successfully decoded share from {path}: {share}")
             shares.append(share)
+        else:
+            print(f"Failed to decode share from {path}")
     
     # Reconstruct the secret from the shares
     if shares:
-        return reconstruct(shares, prime)
+        if all_equal_primes:
+            return reconstruct(shares)
+        else:
+            return "Error: The shares have different prime values. Reconstruction failed."
     else:
         return "Error: Could not extract any valid shares from QR codes."
 
-def main():
-    # TODO: implement the CLI
-    # TODO: the prime used should be attached to the shares, since without it, reconstruction is impossible
-    # TODO: implement message splitting for messages larger than 512 bits:
-    # - split the message into chunks of 512 bits
-    # - share each chunk separately
-    # - they should be labeled in a way that allows them to be distributed appropriately
-    # print("this should only run if the script is invoked as a standalone application")
 
-    pass
+def main():
+    parser = argparse.ArgumentParser(description="Shamir's Secret Sharing CLI")
+    
+    # Create a group for the main actions
+    action_group = parser.add_mutually_exclusive_group(required=True)
+    action_group.add_argument('-s', '--share', action='store_true', help='Share a secret')
+    action_group.add_argument('-r', '--reconstruct', action='store_true', help='Reconstruct a secret from shares')
+    
+    # Create a group for message input type (only applicable for sharing)
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument('-m', '--message', type=str, help='Secret message to share')
+    input_group.add_argument('-f', '--file', type=str, help='File containing the secret to share')
+    
+    # Add encoding type
+    parser.add_argument('--enc_type', choices=['base64', 'qr'], default='base64', 
+                        help='Encoding type for shares (base64 or QR codes)')
+    
+    # Positional arguments - will be interpreted based on action
+    parser.add_argument('args', nargs='*', help='Additional arguments based on action. For sharing, the first two arguments are the threshold and number of shares. For reconstructing, the first argument is the path to the shares.')
+    
+    args = parser.parse_args()
+    
+    # Handle share action
+    if args.share:
+        # Validate input method
+        if not args.message and not args.file:
+            parser.error("When sharing, either -m/--message or -f/--file must be specified")
+        
+        # Validate and parse positional arguments
+        if len(args.args) != 2:
+            parser.error("When sharing, exactly 2 additional arguments are required: threshold and number_of_shares")
+        
+        try:
+            threshold = int(args.args[0])
+            num_shares = int(args.args[1])
+        except ValueError:
+            parser.error("Threshold and number_of_shares must be integers")
+        
+        # Get the message to share
+        if args.message:
+            message = args.message
+        else:  # args.file
+            try:
+                with open(args.file, 'r') as f:
+                    message = f.read()
+            except Exception as e:
+                print(f"Error reading file: {e}")
+                return
+        
+        # Generate shares
+        try:
+            # Use globals()['share'] to avoid name conflict with args.share
+            share_func = globals()['share']
+            generated_shares, prime_used = share_func(message, threshold, num_shares)
+            
+            # Handle different encoding types
+            if args.enc_type == 'base64':
+                encoded_shares = [encode_share_base64(s, prime_used) for s in generated_shares]
+                for i, es in enumerate(encoded_shares):
+                    print(f"Share {i+1}: {es}")
+                
+                # Save shares to files
+                shares_dir = "shares_base64"
+                if not os.path.exists(shares_dir):
+                    os.makedirs(shares_dir)
+                
+                for i, es in enumerate(encoded_shares):
+                    with open(f"{shares_dir}/share_{i+1}.txt", 'w') as f:
+                        f.write(es)
+                print(f"Base64 encoded shares saved to {shares_dir}/ directory")
+                
+            elif args.enc_type == 'qr':
+                generate_all_share_qrcodes(generated_shares, prime_value=prime_used)
+                print(f"QR code shares generated in shares_qr/ directory")
+            
+        except Exception as e:
+            print(f"Error generating shares: {e}")
+    
+    # Handle reconstruct action
+    elif args.reconstruct:
+        if not args.args:
+            parser.error("When reconstructing, you must provide the path to the shares")
+        
+        # Handle different encoding types
+        if args.enc_type == 'base64':
+            # Assume args.args contains paths to base64 encoded share files
+            shares = []
+            
+            for path in args.args:
+                try:
+                    with open(path, 'r') as f:
+                        encoded_share = f.read().strip()
+                        share_result = decode_share_base64(encoded_share)
+                        
+                        if isinstance(share_result, tuple) and len(share_result) == 2:
+                            share, prime_from_share = share_result
+                            shares.append(share)
+                        else:
+                            print(f"Invalid share format in {path}")
+                except Exception as e:
+                    print(f"Error reading share from {path}: {e}")
+            
+            if shares:
+                secret = reconstruct(shares, prime_from_share)
+                print(f"Reconstructed secret: {secret}")
+            else:
+                print("No valid shares found. Reconstruction failed.")
+                
+        elif args.enc_type == 'qr':
+            # Assume args.args is a directory containing QR code images
+            if len(args.args) != 1:
+                parser.error("When reconstructing from QR codes, provide the directory containing the QR codes")
+            
+            qr_dir = args.args[0]
+            if not os.path.isdir(qr_dir):
+                print(f"Error: {qr_dir} is not a directory")
+                return
+            
+            # Get all image files in the directory
+            image_paths = []
+            for filename in os.listdir(qr_dir):
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    image_paths.append(os.path.join(qr_dir, filename))
+            
+            if not image_paths:
+                print(f"No image files found in {qr_dir}")
+                return
+            
+            secret = reconstruct_from_qrcodes(image_paths)
+            if secret:
+                print(f"Reconstructed secret: {secret}")
+            else:
+                print("Failed to reconstruct secret from QR codes")
 
 
 if __name__ == "__main__":
